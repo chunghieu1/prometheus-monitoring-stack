@@ -176,13 +176,16 @@ else
   if ! [ -f /usr/sbin/grafana-server ]; then
     echo "ERROR: /usr/sbin/grafana-server does not exist after install!"; exit 1; fi
   echo "Grafana installation successful!"
+  sudo systemctl enable grafana-server
+  sudo systemctl start grafana-server
+  echo "Grafana is running at: http://localhost:3000 (default user/pass: admin/admin)"
 fi
 
 # --- Alertmanager ---
 echo "=== Installing Alertmanager (latest) ==="
 ALERT_URL=$(curl -s https://api.github.com/repos/prometheus/alertmanager/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
 ALERTMANAGER_SERVICE=alertmanager
-if systemctl list-unit_files | grep -q "^$ALERTMANAGER_SERVICE"; then
+if systemctl list_unit_files | grep -q "^$ALERTMANAGER_SERVICE"; then
   if systemctl is-active --quiet $ALERTMANAGER_SERVICE; then
     echo "Alertmanager service is already running."
     echo "If you want to upgrade or reinstall, please stop the service and remove /opt/alertmanager before rerunning this script."
@@ -212,7 +215,8 @@ After=network.target
 User=root
 ExecStart=/opt/alertmanager/alertmanager \
   --config.file=/opt/alertmanager/alertmanager.yml \
-  --storage.path=/opt/alertmanager/data
+  --storage.path=/opt/alertmanager/data \
+  --cluster.listen-address=""
 
 [Install]
 WantedBy=multi-user.target
@@ -221,6 +225,19 @@ EOF
   systemctl enable alertmanager
   systemctl start alertmanager
   echo "Alertmanager is running at: http://localhost:9093"
+fi
+
+# --- Ensure Prometheus scrapes Grafana metrics ---
+PROM_CONFIG="/opt/prometheus/prometheus.yml"
+if ! grep -q 'job_name: *["'\''"]*grafana' "$PROM_CONFIG"; then
+  echo "Adding Grafana scrape job to $PROM_CONFIG ..."
+  # Insert before the last line (assuming last line is closing scrape_configs)
+  sed -i '/scrape_configs:/a\
+  - job_name: "grafana"\n    static_configs:\n      - targets: ["localhost:3000"]' "$PROM_CONFIG"
+  sudo systemctl restart prometheus
+  echo "Prometheus config updated and service restarted."
+else
+  echo "Grafana scrape job already exists in $PROM_CONFIG."
 fi
 
 # 6. Check service status after start
