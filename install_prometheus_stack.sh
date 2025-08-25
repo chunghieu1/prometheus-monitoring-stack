@@ -150,49 +150,27 @@ fi
 
 # --- Grafana ---
 echo "=== Installing Grafana (latest) ==="
-GRAFANA_URL=$(curl -s https://api.github.com/repos/grafana/grafana/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
 GRAFANA_SERVICE=grafana-server
 if systemctl list-unit-files | grep -q "^$GRAFANA_SERVICE"; then
   if systemctl is-active --quiet $GRAFANA_SERVICE; then
     echo "Grafana service is already running."
-    echo "If you want to upgrade or reinstall, please stop the service and remove /opt/grafana before rerunning this script."
+    echo "If you want to upgrade or reinstall, please stop the service and run 'sudo apt-get remove grafana' before rerunning this script."
   else
     echo "Grafana is installed but stopped or failed. Check: systemctl status grafana-server."
     echo "This script does not auto-fix service errors."
   fi
 else
-  cd /opt
-  GRAFANA_FILE=$(basename "$GRAFANA_URL")
-  wget -O "$GRAFANA_FILE" "$GRAFANA_URL"
-  tar -xvf "$GRAFANA_FILE"
-  GRAFANA_DIR=$(tar -tf "$GRAFANA_FILE" | head -1 | cut -f1 -d"/")
-  if [ ! -d "$GRAFANA_DIR" ]; then
-    echo "ERROR: Extracted directory $GRAFANA_DIR not found for Grafana!"
+  echo "Installing Grafana via apt..."
+  sudo apt-get update
+  sudo apt-get install -y apt-transport-https software-properties-common wget
+  wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+  echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+  sudo apt-get update
+  sudo apt-get install -y grafana
+  if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to install Grafana via apt."
     exit 1
   fi
-  rm -rf grafana
-  mv "$GRAFANA_DIR" grafana || { echo "ERROR: Failed to move $GRAFANA_DIR to /opt/grafana"; exit 1; }
-  chmod +x /opt/grafana/bin/grafana-server
-  useradd --no-create-home --shell /bin/false grafana || true
-  cat <<EOF > /etc/systemd/system/grafana-server.service
-[Unit]
-Description=Grafana instance
-After=network.target
-
-[Service]
-User=grafana
-Group=grafana
-Type=simple
-ExecStart=/opt/grafana/bin/grafana-server --homepath=/opt/grafana
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  systemctl daemon-reload
-  systemctl enable grafana-server
-  systemctl start grafana-server
-  echo "Grafana is running at: http://localhost:3000 (default user/pass: admin/admin)"
 fi
 
 # --- Alertmanager ---
@@ -220,19 +198,6 @@ else
   rm -rf alertmanager
   mv "$ALERT_DIR" alertmanager || { echo "ERROR: Failed to move $ALERT_DIR to /opt/alertmanager"; exit 1; }
   chmod +x /opt/alertmanager/alertmanager
-  cat <<EOF > /opt/alertmanager/alertmanager.yml
-global:
-  resolve_timeout: 5m
-
-route:
-  receiver: 'discord'
-
-receivers:
-  - name: 'discord'
-    webhook_configs:
-      - url: 'http://localhost:9094'
-        send_resolved: true
-EOF
   cat <<EOF > /etc/systemd/system/alertmanager.service
 [Unit]
 Description=Alertmanager
@@ -242,8 +207,7 @@ After=network.target
 User=root
 ExecStart=/opt/alertmanager/alertmanager \
   --config.file=/opt/alertmanager/alertmanager.yml \
-  --storage.path=/opt/alertmanager/data \
-  --cluster.listen-address=""
+  --storage.path=/opt/alertmanager/data
 
 [Install]
 WantedBy=multi-user.target
@@ -252,20 +216,6 @@ EOF
   systemctl enable alertmanager
   systemctl start alertmanager
   echo "Alertmanager is running at: http://localhost:9093"
-fi
-
-# After installing Grafana, ensure Prometheus scrapes Grafana metrics
-PROM_CONFIG="/opt/prometheus/prometheus.yml"
-if ! grep -q 'job_name:.*grafana' "$PROM_CONFIG"; then
-  echo "Adding Grafana scrape job to prometheus.yml..."
-  cat <<EOG >> "$PROM_CONFIG"
-
-  - job_name: "grafana"
-    static_configs:
-      - targets: ["localhost:3000"]
-EOG
-  systemctl reload prometheus || systemctl restart prometheus
-  echo "Prometheus config updated to scrape Grafana metrics."
 fi
 
 # 6. Check service status after start
