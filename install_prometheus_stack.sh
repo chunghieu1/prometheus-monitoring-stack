@@ -79,8 +79,8 @@ else
   tar -xvf "$PROM_FILE"
   PROM_DIR=$(tar -tf "$PROM_FILE" | head -1 | cut -f1 -d"/")
   rm -rf prometheus
-  mkdir -p prometheus
-  cp -r "$PROM_DIR"/* prometheus/
+  mv "$PROM_DIR" prometheus
+  chmod +x /opt/prometheus/prometheus
   cat <<EOF > /etc/systemd/system/prometheus.service
 [Unit]
 Description=Prometheus
@@ -120,8 +120,8 @@ else
   tar -xvf "$NODE_FILE"
   NODE_DIR=$(tar -tf "$NODE_FILE" | head -1 | cut -f1 -d"/")
   rm -rf node_exporter
-  mkdir -p node_exporter
-  cp -r "$NODE_DIR"/* node_exporter/
+  mv "$NODE_DIR" node_exporter
+  chmod +x /opt/node_exporter/node_exporter
   cat <<EOF > /etc/systemd/system/node_exporter.service
 [Unit]
 Description=Node Exporter
@@ -159,8 +159,8 @@ else
   tar -xvf "$GRAFANA_FILE"
   GRAFANA_DIR=$(tar -tf "$GRAFANA_FILE" | head -1 | cut -f1 -d"/")
   rm -rf grafana
-  mkdir -p grafana
-  cp -r "$GRAFANA_DIR"/* grafana/
+  mv "$GRAFANA_DIR" grafana
+  chmod +x /opt/grafana/bin/grafana-server
   useradd --no-create-home --shell /bin/false grafana || true
   cat <<EOF > /etc/systemd/system/grafana-server.service
 [Unit]
@@ -202,8 +202,8 @@ else
   tar -xvf "$ALERT_FILE"
   ALERT_DIR=$(tar -tf "$ALERT_FILE" | head -1 | cut -f1 -d"/")
   rm -rf alertmanager
-  mkdir -p alertmanager
-  cp -r "$ALERT_DIR"/* alertmanager/
+  mv "$ALERT_DIR" alertmanager
+  chmod +x /opt/alertmanager/alertmanager
   cat <<EOF > /opt/alertmanager/alertmanager.yml
 global:
   resolve_timeout: 5m
