@@ -1,26 +1,64 @@
 #!/bin/bash
 set -e
 
+LOG_FILE="/var/log/prometheus_stack_install.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 # Check for root privileges
 if [ "$EUID" -ne 0 ]; then
   echo "Please run this script as root or with sudo."
   exit 1
 fi
 
-echo "=== System update ==="
-# Wait for dpkg lock if needed
-while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-  echo "Waiting for other package managers to finish..."
-  sleep 5
-done
+# 1. Detect and disable firewalls (csf, ufw, firewalld)
+echo "=== Checking and disabling firewalls (csf, ufw, firewalld) ==="
+if systemctl is-active --quiet csf; then
+  echo "Disabling csf firewall..."
+  systemctl stop csf || true
+  systemctl disable csf || true
+fi
+if systemctl is-active --quiet ufw; then
+  echo "Disabling ufw firewall..."
+  ufw disable || true
+  systemctl stop ufw || true
+  systemctl disable ufw || true
+fi
+if systemctl is-active --quiet firewalld; then
+  echo "Disabling firewalld..."
+  systemctl stop firewalld || true
+  systemctl disable firewalld || true
+fi
 
-# Temporarily suppress kernel upgrade notification
+# 2. Temporarily suppress kernel upgrade notification
 if [ -f /var/run/reboot-required ]; then
   echo "Temporarily removing /var/run/reboot-required to suppress kernel upgrade notification during script run."
   rm -f /var/run/reboot-required
 fi
 
+# 3. System update (wait for dpkg lock)
+while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+  echo "Waiting for other package managers to finish..."
+  sleep 5
+done
+export DEBIAN_FRONTEND=noninteractive
 apt update && apt upgrade -y
+
+# 4. Ensure data directories exist
+echo "Ensuring data directories exist..."
+mkdir -p /opt/prometheus/data /opt/alertmanager/data
+
+# 5. Check config file write permissions
+for f in /opt/prometheus/prometheus.yml /opt/alertmanager/alertmanager.yml; do
+  if [ -e "$f" ] && [ ! -w "$f" ]; then
+    echo "ERROR: Cannot write to $f. Please check permissions."
+    exit 1
+  fi
+  # If file does not exist, check parent dir
+  if [ ! -e "$f" ] && [ ! -w "$(dirname $f)" ]; then
+    echo "ERROR: Cannot write to $(dirname $f). Please check permissions."
+    exit 1
+  fi
+done
 
 # --- Prometheus ---
 echo "=== Installing Prometheus (latest) ==="
@@ -202,7 +240,35 @@ EOG
   echo "Prometheus config updated to scrape Grafana metrics."
 fi
 
+# 6. Check service status after start
+for svc in prometheus node_exporter grafana-server alertmanager; do
+  if ! systemctl is-active --quiet $svc; then
+    echo "ERROR: $svc failed to start. Showing last 20 log lines:"
+    journalctl -u $svc --no-pager -n 20
+  fi
+  echo "$svc is running."
+done
+
+# 7. Notify if reboot is required after install
+if [ -f /var/run/reboot-required ]; then
+  echo "WARNING: System reboot is required to complete kernel upgrade. Please reboot soon."
+fi
+
+# Detect public IPv4 address
+IPV4=$(curl -s http://checkip.amazonaws.com || hostname -I | awk '{print $1}')
+
+cat <<EOF
+
+=== Access the stack ===
+Prometheus:   http://$IPV4:9090
+Node Exporter: http://$IPV4:9100
+Grafana:      http://$IPV4:3000 (default user/pass: admin/admin)
+Alertmanager: http://$IPV4:9093
+
+Replace '$IPV4' with your VPS public IP address if accessing from another device.
+EOF
+
 echo "=== Prometheus Stack installation complete! ==="
-echo ""
 echo "- If you want to upgrade/reinstall any component, stop the service and remove the corresponding folder/config file before rerunning this script."
 echo "- If a service fails, check with systemctl status <service> and review the logs."
+echo "- Install log saved at $LOG_FILE."
