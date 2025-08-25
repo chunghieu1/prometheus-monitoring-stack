@@ -63,7 +63,6 @@ done
 # --- Prometheus ---
 echo "=== Installing Prometheus (latest) ==="
 PROM_URL=$(curl -s https://api.github.com/repos/prometheus/prometheus/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
-PROM_VERSION=$(echo $PROM_URL | grep -oP 'prometheus-\K[0-9.]+')
 PROM_SERVICE=prometheus
 if systemctl list-unit-files | grep -q "^$PROM_SERVICE"; then
   if systemctl is-active --quiet $PROM_SERVICE; then
@@ -75,9 +74,11 @@ if systemctl list-unit-files | grep -q "^$PROM_SERVICE"; then
   fi
 else
   cd /opt
-  wget $PROM_URL
-  tar -xvf prometheus-$PROM_VERSION.linux-amd64.tar.gz
-  mv prometheus-$PROM_VERSION.linux-amd64 prometheus
+  PROM_FILE=$(basename "$PROM_URL")
+  wget -O "$PROM_FILE" "$PROM_URL" && \
+  tar -xvf "$PROM_FILE" && \
+  PROM_DIR=$(tar -tf "$PROM_FILE" | head -1 | cut -f1 -d"/") && \
+  mv "$PROM_DIR" prometheus
   cat <<EOF > /etc/systemd/system/prometheus.service
 [Unit]
 Description=Prometheus
@@ -101,7 +102,6 @@ fi
 # --- Node Exporter ---
 echo "=== Installing Node Exporter (latest) ==="
 NODE_URL=$(curl -s https://api.github.com/repos/prometheus/node_exporter/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
-NODE_VERSION=$(echo $NODE_URL | grep -oP 'node_exporter-\K[0-9.]+')
 NODE_EXPORTER_SERVICE=node_exporter
 if systemctl list-unit-files | grep -q "^$NODE_EXPORTER_SERVICE"; then
   if systemctl is-active --quiet $NODE_EXPORTER_SERVICE; then
@@ -113,9 +113,11 @@ if systemctl list-unit-files | grep -q "^$NODE_EXPORTER_SERVICE"; then
   fi
 else
   cd /opt
-  wget $NODE_URL
-  tar -xvf node_exporter-$NODE_VERSION.linux-amd64.tar.gz
-  mv node_exporter-$NODE_VERSION.linux-amd64 node_exporter
+  NODE_FILE=$(basename "$NODE_URL")
+  wget -O "$NODE_FILE" "$NODE_URL" && \
+  tar -xvf "$NODE_FILE" && \
+  NODE_DIR=$(tar -tf "$NODE_FILE" | head -1 | cut -f1 -d"/") && \
+  mv "$NODE_DIR" node_exporter
   cat <<EOF > /etc/systemd/system/node_exporter.service
 [Unit]
 Description=Node Exporter
@@ -137,7 +139,6 @@ fi
 # --- Grafana ---
 echo "=== Installing Grafana (latest) ==="
 GRAFANA_URL=$(curl -s https://api.github.com/repos/grafana/grafana/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
-GRAFANA_VERSION=$(echo $GRAFANA_URL | grep -oP 'grafana-\K[0-9.]+')
 GRAFANA_SERVICE=grafana-server
 if systemctl list-unit-files | grep -q "^$GRAFANA_SERVICE"; then
   if systemctl is-active --quiet $GRAFANA_SERVICE; then
@@ -149,9 +150,11 @@ if systemctl list-unit-files | grep -q "^$GRAFANA_SERVICE"; then
   fi
 else
   cd /opt
-  wget $GRAFANA_URL
-  tar -xvf grafana-$GRAFANA_VERSION.linux-amd64.tar.gz
-  mv grafana-$GRAFANA_VERSION grafana
+  GRAFANA_FILE=$(basename "$GRAFANA_URL")
+  wget -O "$GRAFANA_FILE" "$GRAFANA_URL" && \
+  tar -xvf "$GRAFANA_FILE" && \
+  GRAFANA_DIR=$(tar -tf "$GRAFANA_FILE" | head -1 | cut -f1 -d"/") && \
+  mv "$GRAFANA_DIR" grafana
   useradd --no-create-home --shell /bin/false grafana || true
   cat <<EOF > /etc/systemd/system/grafana-server.service
 [Unit]
@@ -177,7 +180,6 @@ fi
 # --- Alertmanager ---
 echo "=== Installing Alertmanager (latest) ==="
 ALERT_URL=$(curl -s https://api.github.com/repos/prometheus/alertmanager/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
-ALERTMANAGER_VERSION=$(echo $ALERT_URL | grep -oP 'alertmanager-\K[0-9.]+')
 ALERTMANAGER_SERVICE=alertmanager
 if systemctl list-unit-files | grep -q "^$ALERTMANAGER_SERVICE"; then
   if systemctl is-active --quiet $ALERTMANAGER_SERVICE; then
@@ -189,9 +191,11 @@ if systemctl list-unit-files | grep -q "^$ALERTMANAGER_SERVICE"; then
   fi
 else
   cd /opt
-  wget $ALERT_URL
-  tar -xvf alertmanager-$ALERTMANAGER_VERSION.linux-amd64.tar.gz
-  mv alertmanager-$ALERTMANAGER_VERSION.linux-amd64 alertmanager
+  ALERT_FILE=$(basename "$ALERT_URL")
+  wget -O "$ALERT_FILE" "$ALERT_URL" && \
+  tar -xvf "$ALERT_FILE" && \
+  ALERT_DIR=$(tar -tf "$ALERT_FILE" | head -1 | cut -f1 -d"/") && \
+  mv "$ALERT_DIR" alertmanager
   cat <<EOF > /opt/alertmanager/alertmanager.yml
 global:
   resolve_timeout: 5m
