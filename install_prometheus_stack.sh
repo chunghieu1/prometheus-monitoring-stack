@@ -13,6 +13,13 @@ while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
   echo "Waiting for other package managers to finish..."
   sleep 5
 done
+
+# Temporarily suppress kernel upgrade notification
+if [ -f /var/run/reboot-required ]; then
+  echo "Temporarily removing /var/run/reboot-required to suppress kernel upgrade notification during script run."
+  rm -f /var/run/reboot-required
+fi
+
 apt update && apt upgrade -y
 
 # --- Prometheus ---
@@ -169,7 +176,8 @@ After=network.target
 User=root
 ExecStart=/opt/alertmanager/alertmanager \
   --config.file=/opt/alertmanager/alertmanager.yml \
-  --storage.path=/opt/alertmanager/data
+  --storage.path=/opt/alertmanager/data \
+  --cluster.listen-address=""
 
 [Install]
 WantedBy=multi-user.target
@@ -178,6 +186,20 @@ EOF
   systemctl enable alertmanager
   systemctl start alertmanager
   echo "Alertmanager is running at: http://localhost:9093"
+fi
+
+# After installing Grafana, ensure Prometheus scrapes Grafana metrics
+PROM_CONFIG="/opt/prometheus/prometheus.yml"
+if ! grep -q 'job_name:.*grafana' "$PROM_CONFIG"; then
+  echo "Adding Grafana scrape job to prometheus.yml..."
+  cat <<EOG >> "$PROM_CONFIG"
+
+  - job_name: "grafana"
+    static_configs:
+      - targets: ["localhost:3000"]
+EOG
+  systemctl reload prometheus || systemctl restart prometheus
+  echo "Prometheus config updated to scrape Grafana metrics."
 fi
 
 echo "=== Prometheus Stack installation complete! ==="
