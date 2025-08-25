@@ -75,10 +75,12 @@ if systemctl list-unit-files | grep -q "^$PROM_SERVICE"; then
 else
   cd /opt
   PROM_FILE=$(basename "$PROM_URL")
-  wget -O "$PROM_FILE" "$PROM_URL" && \
-  tar -xvf "$PROM_FILE" && \
-  PROM_DIR=$(tar -tf "$PROM_FILE" | head -1 | cut -f1 -d"/") && \
-  mv "$PROM_DIR" prometheus
+  wget -O "$PROM_FILE" "$PROM_URL"
+  tar -xvf "$PROM_FILE"
+  PROM_DIR=$(tar -tf "$PROM_FILE" | head -1 | cut -f1 -d"/")
+  rm -rf prometheus
+  mkdir -p prometheus
+  cp -r "$PROM_DIR"/* prometheus/
   cat <<EOF > /etc/systemd/system/prometheus.service
 [Unit]
 Description=Prometheus
@@ -114,10 +116,12 @@ if systemctl list-unit-files | grep -q "^$NODE_EXPORTER_SERVICE"; then
 else
   cd /opt
   NODE_FILE=$(basename "$NODE_URL")
-  wget -O "$NODE_FILE" "$NODE_URL" && \
-  tar -xvf "$NODE_FILE" && \
-  NODE_DIR=$(tar -tf "$NODE_FILE" | head -1 | cut -f1 -d"/") && \
-  mv "$NODE_DIR" node_exporter
+  wget -O "$NODE_FILE" "$NODE_URL"
+  tar -xvf "$NODE_FILE"
+  NODE_DIR=$(tar -tf "$NODE_FILE" | head -1 | cut -f1 -d"/")
+  rm -rf node_exporter
+  mkdir -p node_exporter
+  cp -r "$NODE_DIR"/* node_exporter/
   cat <<EOF > /etc/systemd/system/node_exporter.service
 [Unit]
 Description=Node Exporter
@@ -151,10 +155,12 @@ if systemctl list-unit-files | grep -q "^$GRAFANA_SERVICE"; then
 else
   cd /opt
   GRAFANA_FILE=$(basename "$GRAFANA_URL")
-  wget -O "$GRAFANA_FILE" "$GRAFANA_URL" && \
-  tar -xvf "$GRAFANA_FILE" && \
-  GRAFANA_DIR=$(tar -tf "$GRAFANA_FILE" | head -1 | cut -f1 -d"/") && \
-  mv "$GRAFANA_DIR" grafana
+  wget -O "$GRAFANA_FILE" "$GRAFANA_URL"
+  tar -xvf "$GRAFANA_FILE"
+  GRAFANA_DIR=$(tar -tf "$GRAFANA_FILE" | head -1 | cut -f1 -d"/")
+  rm -rf grafana
+  mkdir -p grafana
+  cp -r "$GRAFANA_DIR"/* grafana/
   useradd --no-create-home --shell /bin/false grafana || true
   cat <<EOF > /etc/systemd/system/grafana-server.service
 [Unit]
@@ -192,10 +198,12 @@ if systemctl list-unit-files | grep -q "^$ALERTMANAGER_SERVICE"; then
 else
   cd /opt
   ALERT_FILE=$(basename "$ALERT_URL")
-  wget -O "$ALERT_FILE" "$ALERT_URL" && \
-  tar -xvf "$ALERT_FILE" && \
-  ALERT_DIR=$(tar -tf "$ALERT_FILE" | head -1 | cut -f1 -d"/") && \
-  mv "$ALERT_DIR" alertmanager
+  wget -O "$ALERT_FILE" "$ALERT_URL"
+  tar -xvf "$ALERT_FILE"
+  ALERT_DIR=$(tar -tf "$ALERT_FILE" | head -1 | cut -f1 -d"/")
+  rm -rf alertmanager
+  mkdir -p alertmanager
+  cp -r "$ALERT_DIR"/* alertmanager/
   cat <<EOF > /opt/alertmanager/alertmanager.yml
 global:
   resolve_timeout: 5m
