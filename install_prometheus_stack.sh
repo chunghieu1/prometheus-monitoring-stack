@@ -161,23 +161,28 @@ if systemctl list-unit-files | grep -q "^$GRAFANA_SERVICE"; then
   fi
 else
   echo "Installing Grafana via apt..."
-  sudo apt-get update
-  sudo apt-get install -y apt-transport-https software-properties-common wget
-  wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
-  echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
-  sudo apt-get update
-  sudo apt-get install -y grafana
-  if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to install Grafana via apt."
-    exit 1
-  fi
+  if ! sudo apt-get update; then
+    echo "ERROR: apt-get update failed!"; exit 1; fi
+  if ! sudo apt-get install -y apt-transport-https software-properties-common wget; then
+    echo "ERROR: apt-get install dependencies failed!"; exit 1; fi
+  if ! wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -; then
+    echo "ERROR: Could not fetch Grafana GPG key!"; exit 1; fi
+  if ! echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list; then
+    echo "ERROR: Could not write Grafana repo file!"; exit 1; fi
+  if ! sudo apt-get update; then
+    echo "ERROR: apt-get update after adding Grafana repo failed!"; exit 1; fi
+  if ! sudo apt-get install -y grafana; then
+    echo "ERROR: Installing Grafana via apt failed!"; exit 1; fi
+  if ! [ -f /usr/sbin/grafana-server ]; then
+    echo "ERROR: /usr/sbin/grafana-server does not exist after install!"; exit 1; fi
+  echo "Grafana installation successful!"
 fi
 
 # --- Alertmanager ---
 echo "=== Installing Alertmanager (latest) ==="
 ALERT_URL=$(curl -s https://api.github.com/repos/prometheus/alertmanager/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
 ALERTMANAGER_SERVICE=alertmanager
-if systemctl list-unit-files | grep -q "^$ALERTMANAGER_SERVICE"; then
+if systemctl list-unit_files | grep -q "^$ALERTMANAGER_SERVICE"; then
   if systemctl is-active --quiet $ALERTMANAGER_SERVICE; then
     echo "Alertmanager service is already running."
     echo "If you want to upgrade or reinstall, please stop the service and remove /opt/alertmanager before rerunning this script."
