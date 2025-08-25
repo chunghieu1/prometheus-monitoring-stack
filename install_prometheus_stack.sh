@@ -78,8 +78,12 @@ else
   wget -O "$PROM_FILE" "$PROM_URL"
   tar -xvf "$PROM_FILE"
   PROM_DIR=$(tar -tf "$PROM_FILE" | head -1 | cut -f1 -d"/")
+  if [ ! -d "$PROM_DIR" ]; then
+    echo "ERROR: Extracted directory $PROM_DIR not found for Prometheus!"
+    exit 1
+  fi
   rm -rf prometheus
-  mv "$PROM_DIR" prometheus
+  mv "$PROM_DIR" prometheus || { echo "ERROR: Failed to move $PROM_DIR to /opt/prometheus"; exit 1; }
   chmod +x /opt/prometheus/prometheus
   cat <<EOF > /etc/systemd/system/prometheus.service
 [Unit]
@@ -119,8 +123,12 @@ else
   wget -O "$NODE_FILE" "$NODE_URL"
   tar -xvf "$NODE_FILE"
   NODE_DIR=$(tar -tf "$NODE_FILE" | head -1 | cut -f1 -d"/")
+  if [ ! -d "$NODE_DIR" ]; then
+    echo "ERROR: Extracted directory $NODE_DIR not found for Node Exporter!"
+    exit 1
+  fi
   rm -rf node_exporter
-  mv "$NODE_DIR" node_exporter
+  mv "$NODE_DIR" node_exporter || { echo "ERROR: Failed to move $NODE_DIR to /opt/node_exporter"; exit 1; }
   chmod +x /opt/node_exporter/node_exporter
   cat <<EOF > /etc/systemd/system/node_exporter.service
 [Unit]
@@ -158,8 +166,12 @@ else
   wget -O "$GRAFANA_FILE" "$GRAFANA_URL"
   tar -xvf "$GRAFANA_FILE"
   GRAFANA_DIR=$(tar -tf "$GRAFANA_FILE" | head -1 | cut -f1 -d"/")
+  if [ ! -d "$GRAFANA_DIR" ]; then
+    echo "ERROR: Extracted directory $GRAFANA_DIR not found for Grafana!"
+    exit 1
+  fi
   rm -rf grafana
-  mv "$GRAFANA_DIR" grafana
+  mv "$GRAFANA_DIR" grafana || { echo "ERROR: Failed to move $GRAFANA_DIR to /opt/grafana"; exit 1; }
   chmod +x /opt/grafana/bin/grafana-server
   useradd --no-create-home --shell /bin/false grafana || true
   cat <<EOF > /etc/systemd/system/grafana-server.service
@@ -201,8 +213,12 @@ else
   wget -O "$ALERT_FILE" "$ALERT_URL"
   tar -xvf "$ALERT_FILE"
   ALERT_DIR=$(tar -tf "$ALERT_FILE" | head -1 | cut -f1 -d"/")
+  if [ ! -d "$ALERT_DIR" ]; then
+    echo "ERROR: Extracted directory $ALERT_DIR not found for Alertmanager!"
+    exit 1
+  fi
   rm -rf alertmanager
-  mv "$ALERT_DIR" alertmanager
+  mv "$ALERT_DIR" alertmanager || { echo "ERROR: Failed to move $ALERT_DIR to /opt/alertmanager"; exit 1; }
   chmod +x /opt/alertmanager/alertmanager
   cat <<EOF > /opt/alertmanager/alertmanager.yml
 global:
