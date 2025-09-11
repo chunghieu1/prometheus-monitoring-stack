@@ -64,7 +64,6 @@ Replace `your-server-ip` with your VPS public IP address.
 - **Prometheus config:** `/opt/prometheus/prometheus.yml`
 - **Node Exporter:** runs on port 9100
 - **Grafana:** runs on port 3000
-- **Alertmanager config:** `/opt/alertmanager/alertmanager.yml` (Discord webhook enabled)
 
 ## Notes
 
