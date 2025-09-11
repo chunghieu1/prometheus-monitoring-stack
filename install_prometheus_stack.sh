@@ -105,6 +105,39 @@ EOF
   echo "Prometheus is running at: http://localhost:9090"
 fi
 
+RULES_FILE="/opt/prometheus/rules.yml"
+cat <<'EOF' > "$RULES_FILE"
+groups:
+- name: legacy-metrics
+  interval: 30s
+  rules:
+  - record: prometheus_local_storage_memory_series
+    expr: prometheus_tsdb_head_series
+
+  - record: prometheus_local_storage_ingested_samples_total
+    expr: prometheus_tsdb_head_samples_appended_total
+
+  - record: prometheus_rule_eval_duration_seconds
+    expr: prometheus_rule_evaluation_duration_seconds
+
+  - record: prometheus_wal_corruptions_total
+    expr: prometheus_tsdb_wal_corruptions_total
+
+  - record: prometheus_rule_group_eval_duration
+    expr: prometheus_rule_group_duration_seconds
+
+  - record: prometheus_rule_group_eval_activity
+    expr: prometheus_rule_group_last_duration_seconds
+EOF
+
+PROM_CONFIG="/opt/prometheus/prometheus.yml"
+if ! grep -q "rules.yml" "$PROM_CONFIG"; then
+  sed -i '/^rule_files:/d' "$PROM_CONFIG"
+  sed -i '/^scrape_configs:/i rule_files:\n  - "/opt/prometheus/rules.yml"' "$PROM_CONFIG"
+fi
+systemctl restart prometheus
+echo "Recording rules for legacy metrics installed."
+
 # --- Node Exporter ---
 echo "=== Installing Node Exporter (latest) ==="
 NODE_URL=$(curl -s https://api.github.com/repos/prometheus/node_exporter/releases/latest | grep browser_download_url | grep linux-amd64.tar.gz | cut -d '"' -f 4)
